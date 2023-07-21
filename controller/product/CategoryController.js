@@ -1,4 +1,3 @@
-const { Brand } = require("../../model/product/Brand");
 const { Category } = require("../../model/product/Category");
 
 exports.fetchCategory = async (req, res) => {
