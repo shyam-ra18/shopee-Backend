@@ -7,6 +7,7 @@ const brandsRoutes = require("./routes/product/brands");
 const userRoutes = require("./routes/user/userRoutes");
 const authRoutes = require("./routes/auth/authRoutes");
 const cartRoutes = require("./routes/cart/cartRoutes");
+const orderRoutes = require("./routes/order/orderRoutes");
 
 const server = express();
 const port = 8080;
@@ -35,6 +36,7 @@ server.use("/brands", brandsRoutes.router);
 server.use("/user", userRoutes.router);
 server.use("/auth", authRoutes.router);
 server.use("/cart", cartRoutes.router);
+server.use("/order", orderRoutes.router);
 
 server.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
