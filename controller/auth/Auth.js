@@ -1,29 +1,142 @@
 const { User } = require("../../model/user/User");
+const { setUser } = require("../../services/auth");
+const crypto = require("crypto");
+
+// exports.createUser = async (req, res) => {
+//   const user = new User(req.body);
+//   try {
+//     const doc = await user.save();
+//     res.status(201).json({ id: doc.id, role: doc.role });
+//   } catch (err) {
+//     res.status(400).json(err);
+//   }
+// };
 
 exports.createUser = async (req, res) => {
-  const user = new User(req.body);
   try {
-    const doc = await user.save();
-    res.status(201).json({ id: doc.id, role: doc.role });
+    const salt = crypto.randomBytes(16);
+    crypto.pbkdf2(
+      req.body.password,
+      salt,
+      310000,
+      32,
+      "sha256",
+      async function (err, hashedPassword) {
+        const user = new User({ ...req.body, password: hashedPassword, salt });
+        const doc = await user.save();
+
+        res.status(201).json({ id: doc.id, role: doc.role });
+      }
+    );
   } catch (err) {
     res.status(400).json(err);
   }
 };
 
+// exports.loginUser = async (req, res) => {
+//   const { email, password } = req.body;
+//   try {
+//     const user = await User.findOne({ email, password });
+//     if (!user)
+//       return res.status(401).json({ message: "Invalid email or password!" });
+//     crypto.pbkdf2(
+//       password,
+//       salt,
+//       310000,
+//       32,
+//       "sha256",
+//       async function (err, derivedKey) {
+//         if (err) {
+//           return res
+//             .status(401)
+//             .json({ message: "Invalid email or password!" });
+//         }
+
+//         const token = setUser(user);
+//         res.cookie("uid", token);
+//         res.status(200).json({ id: user.id, role: user.role });
+//       }
+//     );
+//     // if (!user || password !== user.password) {
+//     //   return res.status(401).json({ message: "Invalid email or password!" });
+//     // }
+
+//     // const token = setUser(user);
+//     // res.cookie("uid", token);
+//     // res.status(200).json({ id: user.id, role: user.role });
+//   } catch (err) {
+//     // Handle any potential errors that occurred during the database query
+//     console.error(err);
+//     res.status(500).json({ message: "Internal Server Error" });
+//   }
+// };
+
 exports.loginUser = async (req, res) => {
+  const { email, password } = req.body;
+
   try {
-    const user = await User.findOne({ email: req.body.email });
+    // Find the user by email in the database
+    const user = await User.findOne({ email });
+
+    // If the user doesn't exist, return an error
     if (!user) {
-      res.status(401).json({ success: false, message: "Inavlid User" });
-    } else if (user.password === req.body.password) {
-      res.status(200).json({
-        id: user.id,
-        role: user.role,
-      });
-    } else {
-      res.status(401).json({ success: false, message: "User not found" });
+      return res.status(401).json({ message: "Invalid email or password!" });
     }
+
+    // Compare the hashed passwords
+    const isPasswordValid = await comparePasswords(
+      password,
+      user.password,
+      user.salt
+    );
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: "Invalid email or password!" });
+    }
+
+    // If the passwords match, generate a token and set it in a cookie
+    const token = setUser(user);
+    res.cookie("uid", token);
+    res.status(200).json({ id: user.id, role: user.role });
   } catch (err) {
-    res.status(400).json(err);
+    // Handle any potential errors that occurred during the database query
+    console.error(err);
+    res.status(500).json({ message: "Internal Server Error" });
   }
+};
+
+// Function to compare hashed passwords
+async function comparePasswords(password, storedHashedPassword, salt) {
+  return new Promise((resolve, reject) => {
+    crypto.pbkdf2(password, salt, 310000, 32, "sha256", (err, derivedKey) => {
+      if (err) {
+        reject(err);
+      } else {
+        const hashedPassword = derivedKey.toString("hex");
+        resolve(hashedPassword === storedHashedPassword);
+      }
+    });
+  });
+}
+
+// Function to compare hashed passwords
+async function comparePasswords(password, storedHashedPassword, salt) {
+  return new Promise((resolve, reject) => {
+    crypto.pbkdf2(password, salt, 310000, 32, "sha256", (err, derivedKey) => {
+      if (err) {
+        reject(err);
+      } else {
+        const hashedPassword = derivedKey.toString("hex");
+        resolve(
+          crypto.timingSafeEqual(
+            Buffer.from(storedHashedPassword, "hex"),
+            derivedKey
+          )
+        );
+      }
+    });
+  });
+}
+
+exports.checkUser = async (req, res) => {
+  res.json({ status: "success", user: req.user });
 };
