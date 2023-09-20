@@ -13,14 +13,17 @@ const cartRoutes = require("./routes/cart/cartRoutes");
 const orderRoutes = require("./routes/order/orderRoutes");
 const { isAuth } = require("./middleware/authMiddleware");
 
-const port = 8080;
-server.use(cookieParser());
-
+const port = process.env.PORT;
 server.use(
+  "*",
   cors({
+    origin: true,
+    credentials: true,
     exposedHeaders: ["X-Total-Count"],
   })
 );
+server.use(cookieParser());
+
 server.use(express.json());
 
 // backend routes

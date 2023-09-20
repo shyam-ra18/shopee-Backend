@@ -2,16 +2,6 @@ const { User } = require("../../model/user/User");
 const { setUser } = require("../../services/auth");
 const crypto = require("crypto");
 
-// exports.createUser = async (req, res) => {
-//   const user = new User(req.body);
-//   try {
-//     const doc = await user.save();
-//     res.status(201).json({ id: doc.id, role: doc.role });
-//   } catch (err) {
-//     res.status(400).json(err);
-//   }
-// };
-
 exports.createUser = async (req, res) => {
   try {
     const salt = crypto.randomBytes(16);
@@ -25,6 +15,8 @@ exports.createUser = async (req, res) => {
         const user = new User({ ...req.body, password: hashedPassword, salt });
         const doc = await user.save();
 
+        const token = setUser(user);
+        res.cookie("uid", token);
         res.status(201).json({ id: doc.id, role: doc.role });
       }
     );
@@ -33,47 +25,8 @@ exports.createUser = async (req, res) => {
   }
 };
 
-// exports.loginUser = async (req, res) => {
-//   const { email, password } = req.body;
-//   try {
-//     const user = await User.findOne({ email, password });
-//     if (!user)
-//       return res.status(401).json({ message: "Invalid email or password!" });
-//     crypto.pbkdf2(
-//       password,
-//       salt,
-//       310000,
-//       32,
-//       "sha256",
-//       async function (err, derivedKey) {
-//         if (err) {
-//           return res
-//             .status(401)
-//             .json({ message: "Invalid email or password!" });
-//         }
-
-//         const token = setUser(user);
-//         res.cookie("uid", token);
-//         res.status(200).json({ id: user.id, role: user.role });
-//       }
-//     );
-//     // if (!user || password !== user.password) {
-//     //   return res.status(401).json({ message: "Invalid email or password!" });
-//     // }
-
-//     // const token = setUser(user);
-//     // res.cookie("uid", token);
-//     // res.status(200).json({ id: user.id, role: user.role });
-//   } catch (err) {
-//     // Handle any potential errors that occurred during the database query
-//     console.error(err);
-//     res.status(500).json({ message: "Internal Server Error" });
-//   }
-// };
-
 exports.loginUser = async (req, res) => {
   const { email, password } = req.body;
-
   try {
     // Find the user by email in the database
     const user = await User.findOne({ email });
@@ -91,12 +44,15 @@ exports.loginUser = async (req, res) => {
     );
     if (!isPasswordValid) {
       return res.status(401).json({ message: "Invalid email or password!" });
+    } else {
+      // If the passwords match, generate a token and set it in a cookie
+      const token = setUser(user);
+      res.cookie("uid", token, {
+        domain: "http://localhost:3000/",
+        httpOnly: true, 
+      });
+      res.status(200).json({ id: user.id, role: user.role });
     }
-
-    // If the passwords match, generate a token and set it in a cookie
-    const token = setUser(user);
-    res.cookie("uid", token);
-    res.status(200).json({ id: user.id, role: user.role });
   } catch (err) {
     // Handle any potential errors that occurred during the database query
     console.error(err);
